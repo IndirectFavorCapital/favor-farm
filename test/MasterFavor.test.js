@@ -280,7 +280,7 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     
   });
 */
-
+ 
 
   it('comercial, didnt raise funds. Part 1', async () => {
 
