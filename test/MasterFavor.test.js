@@ -23,9 +23,8 @@ function reward(percent, time1, time2, favorPerBlock, amount, totalAmount){
   return Math.trunc(percent*(time2 - time1)*favorPerBlock*amount/(2*totalAmount));
 }
 
-function pendingHonor(Honor, init_balance, balance_after_contribution, deposit_in_last_period, paidReward){
-  return Math.trunc((balance_after_contribution - 
-                        init_balance + paidReward) / deposit_in_last_period * Honor);
+function pendingHonor(Honor, totalAmount, deposit_in_last_period){
+  return Math.trunc(totalAmount / deposit_in_last_period * Honor);
 }
 
 contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
@@ -44,13 +43,19 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
 
     await this.cake.mint(minter, 5000000000, {from: minter});
     await this.syrup.mint(minter, 500000000, {from: minter});
-    this.chef = await MasterChef.new(this.cake.address, this.syrup.address, dev, '1000', '100', { from: minter });
+    this.chef = await MasterChef.new(
+                                  this.cake.address, 
+                                  this.syrup.address, 
+                                  dev, 
+                                  '1000', 
+                                  '100', 
+                                  { from: minter }
+                                 );
     await this.cake.transferOwnership(this.chef.address, { from: minter });
     await this.syrup.transferOwnership(this.chef.address, { from: minter });
 
     this.pancakeFactory = await PancakeFactory.new(this.cake.address, { from: minter });
     this.pancakeRouter = await PancakeRouter.new(this.pancakeFactory.address, minter, { from: minter });
-    //let favor_BUSD_LP_pool = await this.pancakeFactory.createPair(this.cake.address, this.BUSD.address);
     this.farmRouter = await FarmRouter.new({ from: minter });
 
     this.favor_BUSD_LP_pool = await this.pancakeFactory.createPair(this.BUSD.address, this.favor.address);
@@ -59,17 +64,18 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     this.favor_BUSD_pair_address = await this.favor_BUSD_LP_pool.logs[0].args.pair;
     this.cake_favor_pair_address = await this.cake_favor_LP_pool.logs[0].args.pair;
    
-    this.masterFavor = await MasterFavor.new(this.favor.address,
-                                             this.BUSD.address,
-                                             this.pancakeRouter.address,
-                                             this.favor_BUSD_pair_address,
-                                             this.cake_favor_pair_address,
-                                             minter,
-                                             this.chef.address,
-                                             this.cake.address,
-                                             100,
-                                             //100,
-                                             this.farmRouter.address, { from: minter });
+    this.masterFavor = await MasterFavor.new(
+                                           this.favor.address,
+                                           this.BUSD.address,
+                                           this.pancakeRouter.address,
+                                           this.favor_BUSD_pair_address,
+                                           this.cake_favor_pair_address,
+                                           minter,
+                                           this.chef.address,
+                                           this.cake.address,
+                                           100,
+                                           this.farmRouter.address, { from: minter }
+                                          );
   
    await this.favor.mint(999999, {from: minter});
 
@@ -148,7 +154,7 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
    await this.favor.transfer(this.masterFavor.address, 1000000000, {from: minter});
   });
 
-/*
+
   it('non profit, raised funds', async () => {
     await this.masterFavor.addFavorWell(dev, 99999, 1, 999999999, 99999999, {from: minter});
     
@@ -160,7 +166,12 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     await this.masterFavor.withdraw(3, 1, true, {from: alice});
     this.time_2_alice = (await time.latest()).toNumber();
     this.favor_balance_2_alice = (await this.favor.balanceOf(alice)).toNumber();
-    assert.equal(this.favor_balance_2_alice - this.favor_balance_1_alice, reward(2.1, this.time_1_alice, this.time_2_alice, 100, 10, 10));
+
+    assert.equal(
+      this.favor_balance_2_alice - this.favor_balance_1_alice, 
+      reward(2.1, this.time_1_alice, 
+      this.time_2_alice, 100, 10, 10)
+    );
 
     await this.masterFavor.deposit(3, 100, true, {from: bob});
     this.time_1_bob = (await time.latest()).toNumber();
@@ -169,7 +180,11 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     await this.masterFavor.deposit(3, 1, true, {from: bob});
     this.time_2_bob = (await time.latest()).toNumber();
     this.favor_balance_2_bob = (await this.favor.balanceOf(bob)).toNumber();
-    assert.equal(this.favor_balance_2_bob - this.favor_balance_1_bob, reward(2.1, this.time_1_bob, this.time_2_bob, 100, 100, 109));
+
+    assert.equal(
+      this.favor_balance_2_bob - this.favor_balance_1_bob, 
+      reward(2.1, this.time_1_bob, this.time_2_bob, 100, 100, 109)
+    );
   
     await this.masterFavor.deposit(5, 67, true, {from: carol});
     this.time_1_carol = (await time.latest()).toNumber();
@@ -178,10 +193,13 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     await this.masterFavor.deposit(5, 95, true, {from: carol});
     this.time_2_carol = (await time.latest()).toNumber();
     this.favor_balance_2_carol = (await this.favor.balanceOf(carol)).toNumber();
-    assert.equal(this.favor_balance_2_carol - this.favor_balance_1_carol, reward(2.1, this.time_1_carol, this.time_2_carol, 100, 67, 67));
+
+    assert.equal(
+      this.favor_balance_2_carol - this.favor_balance_1_carol, 
+      reward(2.1, this.time_1_carol, this.time_2_carol, 100, 67, 67)
+    );
 
     await time.increase(5000);
-
 
     assert.equal(0, (await this.favor.balanceOf(dev)).toNumber());
 
@@ -189,29 +207,47 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     this.final_time = (await time.latest()).toNumber();;
     this.favor_balance_final_carol = (await this.favor.balanceOf(carol)).toNumber();
 
-    assert.equal((await this.masterFavor.getAmountOut(99999, this.BUSD.address, this.favor.address)).toNumber(), 
-                  (await this.favor.balanceOf(dev)).toNumber());
-    assert.equal(this.favor_balance_final_carol - this.favor_balance_2_carol, 
-                 reward(2.1, this.time_2_carol, this.final_time, 100, 162, 162));
+    assert.equal(
+      (await this.masterFavor.getAmountOut(99999, this.BUSD.address, this.favor.address)).toNumber(), 
+      (await this.favor.balanceOf(dev)).toNumber()
+    );
+
+    assert.equal(
+      this.favor_balance_final_carol - this.favor_balance_2_carol, 
+      reward(2.1, this.time_2_carol, this.final_time, 100, 162, 162)
+    );
 
     await this.masterFavor.withdraw(5, 163, true, {from: carol});
-    assert.equal((await this.masterFavor.getAmountOut(99999, this.BUSD.address, this.favor.address)).toNumber(), 
-                  (await this.favor.balanceOf(dev)).toNumber());
+    assert.equal(
+      (await this.masterFavor.getAmountOut(99999, this.BUSD.address, this.favor.address)).toNumber(), 
+      (await this.favor.balanceOf(dev)).toNumber()
+    );
+
     assert.equal(this.favor_balance_final_carol - (await this.favor.balanceOf(carol)).toNumber(), 0);
 
     await this.masterFavor.withdraw(3, 9, true, {from: alice});
     this.favor_balance_final_alice = (await this.favor.balanceOf(alice)).toNumber();
-    assert.equal((await this.masterFavor.getAmountOut(99999, this.BUSD.address, this.favor.address)).toNumber(), 
-                  (await this.favor.balanceOf(dev)).toNumber());
-    assert.equal(this.favor_balance_final_alice - this.favor_balance_2_alice, 
-                 reward(2.1, this.time_2_alice, this.final_time, 100, 9, 110));
+    assert.equal(
+      (await this.masterFavor.getAmountOut(99999, this.BUSD.address, this.favor.address)).toNumber(), 
+      (await this.favor.balanceOf(dev)).toNumber()
+    );
+
+    assert.equal(
+      this.favor_balance_final_alice - this.favor_balance_2_alice, 
+      reward(2.1, this.time_2_alice, this.final_time, 100, 9, 110)
+    );
 
     await this.masterFavor.withdraw(3, 101, true, {from: bob});
     this.favor_balance_final_bob = (await this.favor.balanceOf(bob)).toNumber();
-    assert.equal((await this.masterFavor.getAmountOut(99999, this.BUSD.address, this.favor.address)).toNumber(), 
-                  (await this.favor.balanceOf(dev)).toNumber());
-    assert.equal(this.favor_balance_final_bob - this.favor_balance_2_bob, 
-                 reward(2.1, this.time_2_bob, this.final_time, 100, 101, 110));
+    assert.equal(
+      (await this.masterFavor.getAmountOut(99999, this.BUSD.address, this.favor.address)).toNumber(), 
+      (await this.favor.balanceOf(dev)).toNumber()
+    );
+
+    assert.equal(
+      this.favor_balance_final_bob - this.favor_balance_2_bob, 
+      reward(2.1, this.time_2_bob, this.final_time, 100, 101, 110)
+    );
 
   });
 
@@ -226,7 +262,11 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     await this.masterFavor.withdraw(3, 1, true, {from: alice});
     this.time_2_alice = (await time.latest()).toNumber();
     this.favor_balance_2_alice = (await this.favor.balanceOf(alice)).toNumber();
-    assert.equal(this.favor_balance_2_alice - this.favor_balance_1_alice, reward(2.1, this.time_1_alice, this.time_2_alice, 100, 10, 10));
+
+    assert.equal(
+      this.favor_balance_2_alice - this.favor_balance_1_alice, 
+      reward(2.1, this.time_1_alice, this.time_2_alice, 100, 10, 10)
+    );
 
     await this.masterFavor.deposit(3, 100, true, {from: bob});
     this.time_1_bob = (await time.latest()).toNumber();
@@ -235,7 +275,12 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     await this.masterFavor.deposit(3, 1, true, {from: bob});
     this.time_2_bob = (await time.latest()).toNumber();
     this.favor_balance_2_bob = (await this.favor.balanceOf(bob)).toNumber();
-    assert.equal(this.favor_balance_2_bob - this.favor_balance_1_bob, reward(2.1, this.time_1_bob, this.time_2_bob, 100, 100, 109));
+
+    assert.equal(
+      this.favor_balance_2_bob - this.favor_balance_1_bob, 
+      reward(2.1, this.time_1_bob, 
+      this.time_2_bob, 100, 100, 109)
+    );
   
     await this.masterFavor.deposit(5, 67, true, {from: carol});
     this.time_1_carol = (await time.latest()).toNumber();
@@ -244,7 +289,11 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     await this.masterFavor.deposit(5, 95, true, {from: carol});
     this.time_2_carol = (await time.latest()).toNumber();
     this.favor_balance_2_carol = (await this.favor.balanceOf(carol)).toNumber();
-    assert.equal(this.favor_balance_2_carol - this.favor_balance_1_carol, reward(2.1, this.time_1_carol, this.time_2_carol, 100, 67, 67));
+
+    assert.equal(
+      this.favor_balance_2_carol - this.favor_balance_1_carol, 
+      reward(2.1, this.time_1_carol, this.time_2_carol, 100, 67, 67)
+    );
 
     await time.increase(5000);
 
@@ -255,16 +304,21 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     this.favor_balance_final_carol = (await this.favor.balanceOf(carol)).toNumber();
     this.final_balance = (await this.favor.balanceOf(dev)).toNumber();
     
-    assert.equal(this.favor_balance_final_carol - this.favor_balance_2_carol, 
-                 reward(2.1, this.time_2_carol, this.final_time, 100, 162, 162));
+    assert.equal(
+      this.favor_balance_final_carol - this.favor_balance_2_carol, 
+      reward(2.1, this.time_2_carol, this.final_time, 100, 162, 162)
+    );
     
     await this.masterFavor.withdraw(5, 161, true, {from: carol});
     assert.equal(this.favor_balance_final_carol - (await this.favor.balanceOf(carol)).toNumber(), 0);
 
     await this.masterFavor.withdraw(3, 4, true, {from: alice});
     this.favor_balance_final_alice = (await this.favor.balanceOf(alice)).toNumber();
-    assert.equal(this.favor_balance_final_alice - this.favor_balance_2_alice, 
-                 reward(2.1, this.time_2_alice, this.final_time, 100, 9, 110));
+
+    assert.equal(
+      this.favor_balance_final_alice - this.favor_balance_2_alice, 
+      reward(2.1, this.time_2_alice, this.final_time, 100, 9, 110)
+    );
 
     await this.masterFavor.withdraw(3, 5, true, {from: alice});
     assert.equal(this.favor_balance_final_alice - (await this.favor.balanceOf(alice)).toNumber(), 0);
@@ -279,8 +333,6 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     assert.equal(this.favor_balance_final_bob - (await this.favor.balanceOf(bob)).toNumber(), 0);
     
   });
-*/
- 
 
   it('comercial, didnt raise funds. Part 1', async () => {
 
@@ -291,7 +343,7 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
 
     this.balance_after_contribution = (await this.favor.balanceOf(this.masterFavor.address)).toNumber();
     this.paidReward = 0;
-    
+
     await this.masterFavor.deposit(3, 10, true, {from: alice});
     this.init_time = (await time.latest()).toNumber();
     await time.increase(30);
@@ -307,7 +359,7 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     this.time_2_bob = (await time.latest()).toNumber();
     this.favor_balance_2_bob = (await this.favor.balanceOf(bob)).toNumber();
     this.paidReward += this.favor_balance_2_bob - this.favor_balance_1_bob;
-  
+
     await this.masterFavor.deposit(5, 67, true, {from: carol});
     this.favor_balance_1_carol = (await this.favor.balanceOf(carol)).toNumber();
     await time.increase(71);
@@ -326,7 +378,7 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     this.final_balance = (await this.favor.balanceOf(dev)).toNumber();
     
     this.paidReward += this.favor_balance_final_carol - this.favor_balance_2_carol;
-    
+
     await this.masterFavor.withdraw(5, 161, true, {from: carol});
     assert.equal(this.favor_balance_final_carol - (await this.favor.balanceOf(carol)).toNumber(), 0);
 
@@ -339,34 +391,40 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
 
     this.pendingrewardBob = reward(2.1, this.time_2_bob, this.final_time, 100, 101, 110);
     this.paidReward += this.pendingrewardBob;
-        
+
     this.favor_balance_1_alice = (await this.favor.balanceOf(alice)).toNumber();
+    
     await this.masterFavor.getHonor(dev, {from: alice});
     this.favor_balance_2_alice = (await this.favor.balanceOf(alice)).toNumber();
     
-    this.HonorAmount = pendingHonor(this.favor_balance_1_alice, this.init_balance, this.balance_after_contribution, 
-                                          this.paidReward, this.paidReward);
+    this.HonorAmount = pendingHonor(
+                          this.favor_balance_1_alice, 
+                          this.balance_after_contribution - this.init_balance + this.paidReward, 
+                          this.paidReward
+                       );
+    
     assert.equal(this.favor_balance_2_alice - this.favor_balance_1_alice, this.HonorAmount);
     
     this.favor_balance_1_bob = (await this.favor.balanceOf(bob)).toNumber();
     await this.masterFavor.getHonor(dev, {from: bob});
     this.favor_balance_2_bob = (await this.favor.balanceOf(bob)).toNumber();
-    this.HonorAmount = pendingHonor(this.favor_balance_1_bob + this.pendingrewardBob, 
-                                          this.init_balance, 
-                                          this.balance_after_contribution, 
-                                          this.paidReward, 
-                                          this.paidReward);
+    this.HonorAmount = pendingHonor(
+                          this.favor_balance_1_bob + this.pendingrewardBob, 
+                          this.balance_after_contribution - this.init_balance + this.paidReward,
+                          this.paidReward
+                       );
 
-    assert.equal(this.favor_balance_2_bob - this.favor_balance_1_bob - this.pendingrewardBob, this.HonorAmount);
+    assert.equal(
+      this.favor_balance_2_bob - this.favor_balance_1_bob - this.pendingrewardBob, 
+      this.HonorAmount
+    );
     
   });
-
-
 
   it('comercial, didnt raise funds. Part 2', async () => {
     this.init_balance = (await this.favor.balanceOf(this.masterFavor.address)).toNumber();
 
-    await this.masterFavor.addFavorWell(dev, 999999999, 10, 231, 99999999, {from: minter});
+    await this.masterFavor.addFavorWell(dev, 999999999, 10, 1031, 99999999, {from: minter});
     await this.masterFavor.makeContribution(dev, {from: minter});
 
 
@@ -410,7 +468,7 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     await time.increase(9009);
 
     await this.masterFavor.withdraw(3, 0, true, {from: bob});
-    this.final_time = this.init_time + 231; 
+    this.final_time = this.init_time + 1031; 
 
     this.pendingRewardAlice = reward(2.1, this.last_time_alice_pool_3, this.final_time, 100, 33, 134) +
                               reward(2.1, this.last_time_alice_pool_5, this.final_time, 100, 4, 4);    
@@ -430,27 +488,27 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     this.balance_alice_after_honor = (await this.favor.balanceOf(alice)).toNumber();
     this.balance_bob_after_honor = (await this.favor.balanceOf(bob)).toNumber();
 
-    this.HonorAmount = pendingHonor(this.balance_bob_befor_honor, 
-                                    this.init_balance, 
-                                    this.balance_after_contribution,
-                                    this.deposit_in_last_period,
-                                    this.paidReward);
+    this.HonorAmount = pendingHonor(
+                          this.balance_bob_befor_honor, 
+                          this.balance_after_contribution - this.init_balance + this.paidReward, 
+                          this.deposit_in_last_period
+                        );
     assert.equal(this.balance_bob_after_honor - this.balance_bob_befor_honor, this.HonorAmount);
 
-    this.HonorAmount = pendingHonor(this.alice_honor, 
-                                    this.init_balance, 
-                                    this.balance_after_contribution,
-                                    this.deposit_in_last_period,
-                                    this.paidReward);
-    assert.equal(this.balance_alice_after_honor - 
-                 this.balance_alice_befor_honor -
-                 this.pendingRewardAlice, 
-                 this.HonorAmount);
+    this.HonorAmount = pendingHonor(
+                          this.alice_honor, 
+                          this.balance_after_contribution - this.init_balance + this.paidReward, 
+                          this.deposit_in_last_period
+                       );
+
+    assert.equal(
+      this.balance_alice_after_honor - this.balance_alice_befor_honor - this.pendingRewardAlice, 
+      this.HonorAmount
+    );
   });
 
 
-/*
-   it('comercial, raised funds, didnt refund', async () => {
+  it('comercial, raised funds, didnt refund', async () => {
     this.init_balance = (await this.favor.balanceOf(this.masterFavor.address)).toNumber();
 
     await this.masterFavor.addFavorWell(dev, 500000, 10, 767467456746, 999, {from: minter});
@@ -468,7 +526,6 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
 
     await this.masterFavor.deposit(5, 7, true, {from: alice});
     await this.masterFavor.deposit(3, 100, true, {from: bob});
-
 
     await time.increase(5300);
 
@@ -500,63 +557,63 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     this.balance_alice_after_honor = (await this.favor.balanceOf(alice)).toNumber();
     this.balance_bob_after_honor = (await this.favor.balanceOf(bob)).toNumber();
 
-    this.HonorAmount = pendingHonor(this.balance_alice_befor_honor, 
-                                    0, 
-                                    1100,
-                                    this.paidReward,
-                                    0);
+    this.HonorAmount = pendingHonor(
+                          this.balance_alice_befor_honor, 
+                          1100,
+                          this.paidReward
+                       );
 
+    assert.equal(
+      this.balance_alice_after_honor - this.balance_alice_befor_honor, 
+      this.HonorAmount
+    );
 
-    console.log(this.balance_alice_after_honor - this.balance_alice_befor_honor, 'balance_alice_after_honor - balance_alice_befor_honor');
-    console.log(this.HonorAmount, 'this.HonorAmount');
-    console.log((await this.masterFavor.pendingHonor(dev, alice)).toNumber(), 'pendingHonor');
-    console.log((await this.masterFavor.pendingRefundAmount(dev)).toNumber(), 'pendingRefundAmount');
-    console.log((await this.masterFavor.pendingDepositInLastPeriod(dev)).toNumber(), 'pendingDepositInLastPeriod');
+    this.HonorAmount = pendingHonor(
+                          this.balance_bob_befor_honor, 
+                          1100,
+                          this.paidReward
+                       );
 
-    //assert.equal(this.balance_alice_after_honor - 
-    //             this.balance_alice_befor_honor, 
-    //             this.HonorAmount);
+    assert.equal(
+      this.balance_bob_after_honor - this.balance_bob_befor_honor, 
+      this.HonorAmount
+    );
+  });
 
+  it('comercial, raised funds, refund', async () => {
+    this.init_balance = (await this.favor.balanceOf(this.masterFavor.address)).toNumber();
 
+    await this.masterFavor.addFavorWell(dev, 500000, 10, 767467456746, 999, {from: minter});
+    await this.masterFavor.makeContribution(dev, {from: minter});
+
+    this.balance_after_contribution = (await this.favor.balanceOf(this.masterFavor.address)).toNumber();
+    this.paidReward = 0;
+    this.deposit_in_last_period = 0;
+    this.alice_honor = 0;
     
+    await this.masterFavor.deposit(3, 10, true, {from: alice});
 
-    await this.masterFavor.deposit(3, 1, true, {from: bob});
-    this.last_time_bob = (await time.latest()).toNumber();
-    await this.masterFavor.deposit(5, 4, true, {from: alice});
+    this.init_time = (await time.latest()).toNumber();
+    await time.increase(5);
+
+    await this.masterFavor.deposit(5, 7, true, {from: alice});
+    await this.masterFavor.deposit(3, 100, true, {from: bob});
+
+    await time.increase(5300);
+
+    await this.masterFavor.withdraw(5, 0, true, {from: alice});
+    await this.masterFavor.withdraw(5, 7, true, {from: alice});
+    await this.masterFavor.withdraw(3, 100, true, {from: bob});
+    await this.masterFavor.withdraw(3, 10, true, {from: alice});
+
+    await this.masterFavor.RefundHonor(dev, 1000, {from: minter});
 
     await time.increase(5);
 
-    await this.masterFavor.withdraw(5, 11, true, {from: alice});
-    await this.masterFavor.withdraw(3, 10, true, {from: alice});
-
-    this.deposit_in_last_period -= (await this.favor.balanceOf(alice)).toNumber();
-    this.alice_honor -= (await this.favor.balanceOf(alice)).toNumber();
-
-    await time.increase(10);
-
-    await this.masterFavor.deposit(3, 33, true, {from: alice});
-    this.last_time_alice_pool_3 = (await time.latest()).toNumber();
-
-    await time.increase(10);
-
-    await this.masterFavor.deposit(5, 4, true, {from: alice});
-    this.last_time_alice_pool_5 = (await time.latest()).toNumber();
-
-    await time.increase(9009);
-
-    await this.masterFavor.withdraw(3, 0, true, {from: bob});
-    this.final_time = this.init_time + 231; 
-
-    this.pendingRewardAlice = reward(2.1, this.last_time_alice_pool_3, this.final_time, 100, 33, 134) +
-                              reward(2.1, this.last_time_alice_pool_5, this.final_time, 100, 4, 4);    
+    await this.masterFavor.RefundHonor(dev, 5200000, {from: minter});
 
     this.paidReward = (await this.favor.balanceOf(alice)).toNumber() +
-                      (await this.favor.balanceOf(bob)).toNumber() +
-                      this.pendingRewardAlice;
-
-    this.deposit_in_last_period += this.paidReward;
-    this.alice_honor += (await this.favor.balanceOf(alice)).toNumber() +
-                        this.pendingRewardAlice;
+                      (await this.favor.balanceOf(bob)).toNumber();
 
     this.balance_alice_befor_honor = (await this.favor.balanceOf(alice)).toNumber();
     this.balance_bob_befor_honor = (await this.favor.balanceOf(bob)).toNumber();
@@ -565,25 +622,30 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     this.balance_alice_after_honor = (await this.favor.balanceOf(alice)).toNumber();
     this.balance_bob_after_honor = (await this.favor.balanceOf(bob)).toNumber();
 
-    this.HonorAmount = pendingHonor(this.balance_bob_befor_honor, 
-                                    this.init_balance, 
-                                    this.balance_after_contribution,
-                                    this.deposit_in_last_period,
-                                    this.paidReward);
-    assert.equal(this.balance_bob_after_honor - this.balance_bob_befor_honor, this.HonorAmount);
+    this.HonorAmount = pendingHonor(
+                          this.balance_alice_befor_honor,
+                          5200000 + 1000,
+                          this.paidReward
+                       );
 
-    this.HonorAmount = pendingHonor(this.alice_honor, 
-                                    this.init_balance, 
-                                    this.balance_after_contribution,
-                                    this.deposit_in_last_period,
-                                    this.paidReward);
-    assert.equal(this.balance_alice_after_honor - 
-                 this.balance_alice_befor_honor -
-                 this.pendingRewardAlice, 
-                 this.HonorAmount);
-    
+    assert.equal(
+      this.balance_alice_after_honor - this.balance_alice_befor_honor, 
+      this.HonorAmount
+    );
+
+    this.HonorAmount = pendingHonor(
+                          this.balance_bob_befor_honor,
+                          5200000 + 1000,
+                          this.paidReward
+                       );
+
+    assert.equal(this.balance_bob_after_honor - 
+                 this.balance_bob_befor_honor, 
+                 this.HonorAmount
+    );
+                 
   });
-*/
+
 });
 
 

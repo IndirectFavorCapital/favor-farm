@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 pragma solidity 0.8.7;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -8,14 +10,7 @@ import "./interfaces/IRouter.sol";
 import "./interfaces/IFarmRouter.sol";
 import "./FarmRouter.sol";
 
-
-// MasterChef is the master of Favor. He can make Favor and he is a fair guy.
-//
-// Note that it's ownable and the owner wields tremendous power. The ownership
-// will be transferred to a governance smart contract once Favor is sufficiently
-// distributed and the community can show to govern itself.
-//
-// Have fun reading it. Hopefully it's bug-free. God bless.
+// MasterFavor is the master of Favor.
 contract MasterFavor is Ownable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
@@ -112,6 +107,7 @@ contract MasterFavor is Ownable {
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
     event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256 amount);
+    event MakeContribution(address indexed user, address indexed favorCompanyOwner);
 
     constructor( 
         IERC20 _favor,
@@ -124,7 +120,7 @@ contract MasterFavor is Ownable {
         IERC20 _cake,
         uint256 _favorPerTime,
         IFarmRouter _FarmRouter
-    ) public {
+    ) {
         favor = _favor;
         BUSD = _BUSD;
         favor_BUSD_LP_pool = _favor_BUSD_LP_pool;
@@ -152,10 +148,10 @@ contract MasterFavor is Ownable {
             } 
         }
         LP_tokens_for_farm.push(LP_token({
-                                LP_token_address: _LP_token,
-                                pancakeSwapPoolId: pancakeswapPid,
-                                onPancakeswap: _onPancakeswap
-            })); 
+            LP_token_address: _LP_token,
+            pancakeSwapPoolId: pancakeswapPid,
+            onPancakeswap: _onPancakeswap
+        })); 
     }
 
     //function that add farm
@@ -167,6 +163,7 @@ contract MasterFavor is Ownable {
         FCI.contribution_percantage = _contribution_percantage;
         FCI.period_of_life = _period_of_life;
         FCI.refund_period = _refund_period;
+        FCI.start_time = 0;
         //contribution_percantage = 1 for non-commercial. fee free
         uint allocationPoint;
         if (_contribution_percantage == 1 || _contribution_percantage == 10){
@@ -178,7 +175,11 @@ contract MasterFavor is Ownable {
             allocationPoint = 23;
         }
         for (uint i = 0; i < LP_tokens_for_farm.length; i++){
-            add(allocationPoint, IERC20(LP_tokens_for_farm[i].LP_token_address), _FavorCompanyOwner, LP_tokens_for_farm[i].pancakeSwapPoolId, LP_tokens_for_farm[i].onPancakeswap);
+            add(allocationPoint, IERC20(
+                LP_tokens_for_farm[i].LP_token_address), 
+                _FavorCompanyOwner, 
+                LP_tokens_for_farm[i].pancakeSwapPoolId, LP_tokens_for_farm[i].onPancakeswap
+            );
         }
     }
 
@@ -190,12 +191,16 @@ contract MasterFavor is Ownable {
         FavorCompanyInformation storage FCI = favorCompanyInformation[_FavorCompanyOwner][farms_amount.sub(1)];
 
         require(FCI.contribution_percantage != 1, 'it is non profit project!');
+        //require(FCI.start == false && FCI.start_time == 0, 'alredy have contribution');
+
         contribution = FCI.totalAmount.mul(FCI.contribution_percantage).div(100);
         fee = FCI.totalAmount.mul(5).div(100);
         BUSD.transferFrom(msg.sender, address(this), contribution + fee);
         FCI.balanceInBUSD = contribution;
         FCI.balanceInFavor = _swapTokens(contribution, address(BUSD), address(favor), address(this));
         FCI.start = true;
+
+        emit MakeContribution(msg.sender, _FavorCompanyOwner);
     }
 
     function _swapTokens(uint amount, address token_0, address token_1, address to) private returns(uint){
@@ -209,8 +214,15 @@ contract MasterFavor is Ownable {
     }
 
     // Add a new lp to the pool. Can only be called by the owner.
-    function add(uint256 _allocPoint, IERC20 _lpToken, address _favorCompanyOwner, uint256 _pancakeswapPid, bool _onPancakeswap) public {
-        //uint256 lastRewardTime = block.timestamp > startTime ? block.timestamp : startTime;
+    function add(
+        uint256 _allocPoint, 
+        IERC20 _lpToken, 
+        address _favorCompanyOwner, 
+        uint256 _pancakeswapPid, 
+        bool _onPancakeswap
+    ) 
+        public 
+    {
         poolInfo.push(PoolInfo({
             lpToken: _lpToken,
             favorCompanyOwner: _favorCompanyOwner,
@@ -225,7 +237,7 @@ contract MasterFavor is Ownable {
     }
 
     // Update the given pool's Favor allocation point. Can only be called by the owner.
-    function set(uint256 _pid, uint256 _allocPoint, bool _withUpdate) public onlyOwner {
+    function set(uint256 _pid, uint256 _allocPoint) public onlyOwner {
         poolInfo[_pid].allocPoint = _allocPoint;
     }
 
@@ -274,7 +286,13 @@ contract MasterFavor is Ownable {
         return reward;
     }
 
-    function _check_farm_state (FavorCompanyInformation storage FCI, address _favorCompanyOwner, uint _favorFromPancakeswap) private{
+    function _check_farm_state (
+        FavorCompanyInformation storage FCI, 
+        address _favorCompanyOwner, 
+        uint _favorFromPancakeswap
+    ) 
+        private
+    {
         uint reward_time;
         if (FCI.start != false && FCI.start_time != 0){
             uint max_time = FCI.start_time + FCI.period_of_life;
@@ -294,7 +312,6 @@ contract MasterFavor is Ownable {
             balanceInFavor_plus_Reward = FCI.balanceInFavor.add(reward + favorFromPancakeswap);
             balanceInBUSD_plus_Reward = getAmountOut(balanceInFavor_plus_Reward, address(favor), address(BUSD));
             uint fee;
-
             if (FCI.contribution_percantage == 1){
                 fee = FCI.totalAmount.mul(5).div(100);
             }
@@ -353,7 +370,6 @@ contract MasterFavor is Ownable {
             
             uint user_amount = user.amount;
             uint reward = user_amount.mul(multiplier).mul(favorPerTime).mul(pool.allocPoint).div(lpSupply).div(20);
-
             pending = reward + favorFromPancakeswap;
 
             if(pending > 0) {
@@ -390,7 +406,6 @@ contract MasterFavor is Ownable {
 
     function getAmountOut(uint amount, address token_0, address token_1) public view returns (uint){
         address[] memory path = new address[](2);
-
         path[0] = token_0;
         path[1] = token_1;
 
@@ -406,13 +421,14 @@ contract MasterFavor is Ownable {
         } else {
             rout = users[user_address].rout_contract;
         }
+
         return rout;
     }
 
     function _depositOnPancakeswap(uint _pid, uint _amount, IERC20 _token, address _user) private returns(uint){
         address rout = _checkRouter(_user);
-
         _token.safeTransfer(address(rout), _amount);
+
         return IRouter(rout).deposit(_pid, _amount);
     }
 
@@ -481,7 +497,7 @@ contract MasterFavor is Ownable {
                     users[msg_sender].honors[pool.favorCompanyOwner][farms_amount.sub(1)].honor = 0;
                 }      
         } else {
-                users[msg_sender].honors[pool.favorCompanyOwner][farms_amount.sub(1)].honor = users[msg_sender].honors[pool.favorCompanyOwner][farms_amount.sub(1)].honor.add(reward - favorFromPancakeswap);
+                users[msg_sender].honors[pool.favorCompanyOwner][farms_amount.sub(1)].honor = users[msg_sender].honors[pool.favorCompanyOwner][farms_amount.sub(1)].honor.sub(favorFromPancakeswap);
         }
     
         FCI.balanceInFavor = FCI.balanceInFavor.add(pending);
@@ -493,6 +509,7 @@ contract MasterFavor is Ownable {
     //refund honor. It is for farms
     function RefundHonor(address _favorCompanyInformation, uint _amount) public {
         uint farms_amount = favorCompanyInformation[_favorCompanyInformation].length;
+
         FavorCompanyInformation storage FCI = favorCompanyInformation[_favorCompanyInformation][farms_amount.sub(1)];
         require(FCI.start == false, "Farm is working yet");
         require(FCI.farm_close == false, "Farm closed");
@@ -562,7 +579,6 @@ contract MasterFavor is Ownable {
         pool.lpToken.safeTransfer(address(msg.sender), user.amount);
         emit EmergencyWithdraw(msg.sender, _pid, user.amount);
         user.amount = 0;
-        //user.rewardDebt = 0;
     }
     
     // Favor transfer function
