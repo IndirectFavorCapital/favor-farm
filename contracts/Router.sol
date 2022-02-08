@@ -28,19 +28,14 @@ contract Router {
         uint cake_amount = cake.balanceOf(address(this));
 
         if(cake_amount != 0){
-
-
             address[] memory path = new address[](2);
-
             path[0] = address(cake);
             path[1] = address(favor);
-
             
             cake.approve(address(PancakeRouter), cake_amount); 
 
             uint[] memory balances;
             balances = PancakeRouter.swapExactTokensForTokens(cake_amount, 0, path, address(this), block.timestamp);  
-
             favor.transfer(userOwner, balances[1]);
 
             return balances[1];   
@@ -51,6 +46,7 @@ contract Router {
     function deposit(uint _poolId, uint _amount) external returns(uint){
         pancakeswapFarm.poolInfo(_poolId).lpToken.approve(address(pancakeswapFarm), _amount);
         pancakeswapFarm.deposit(_poolId, _amount);
+
         return _getRewardFromPancakeSwap();
     }
 
