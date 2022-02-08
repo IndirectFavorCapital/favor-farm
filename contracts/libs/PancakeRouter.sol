@@ -3,13 +3,13 @@ pragma solidity =0.6.6;
 import './interfaces/IPancakeFactory.sol';
 import '@uniswap/lib/contracts/libraries/TransferHelper.sol';
 
-import './interfaces/IPancakeRouter02.sol';
+import './interfaces/IPancakeRouter01.sol';
 import './libraries/PancakeLibrary.sol';
 import './libraries/SafeMath.sol';
 import './interfaces/IERC20.sol';
 import './interfaces/IWETH.sol';
 
-contract PancakeRouter is IPancakeRouter02 {
+contract PancakeRouter is IPancakeRouter01 {
     using SafeMath for uint;
 
     address public immutable override factory;

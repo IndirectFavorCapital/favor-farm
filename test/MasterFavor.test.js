@@ -15,10 +15,6 @@ const PancakePair = artifacts.require('PancakePair');
 const PancakeLibrary = artifacts.require('PancakeLibrary');
 const MockBEP20 = artifacts.require('MockBEP20');
 
-PancakeRouter.defaults({
-  gasPrice: 1
-});
-
 function reward(percent, time1, time2, favorPerBlock, amount, totalAmount){
   return Math.trunc(percent*(time2 - time1)*favorPerBlock*amount/(2*totalAmount));
 }
@@ -153,7 +149,6 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
    await this.lp3.approve(this.chef.address, '1000000000000', { from: carol });
    await this.favor.transfer(this.masterFavor.address, 1000000000, {from: minter});
   });
-
 
   it('non profit, raised funds', async () => {
     await this.masterFavor.addFavorWell(dev, 99999, 1, 999999999, 99999999, {from: minter});
@@ -334,7 +329,7 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     
   });
 
-  it('comercial, didnt raise funds. Part 1', async () => {
+  it('commercial, didnt raise funds. Part 1', async () => {
 
     this.init_balance = (await this.favor.balanceOf(this.masterFavor.address)).toNumber();
 
@@ -421,12 +416,11 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     
   });
 
-  it('comercial, didnt raise funds. Part 2', async () => {
+  it('commercial, didnt raise funds. Part 2', async () => {
     this.init_balance = (await this.favor.balanceOf(this.masterFavor.address)).toNumber();
 
-    await this.masterFavor.addFavorWell(dev, 999999999, 10, 1031, 99999999, {from: minter});
+    await this.masterFavor.addFavorWell(dev, 999999999, 10, 11031, 99999999, {from: minter});
     await this.masterFavor.makeContribution(dev, {from: minter});
-
 
     this.balance_after_contribution = (await this.favor.balanceOf(this.masterFavor.address)).toNumber();
     this.paidReward = 0;
@@ -465,10 +459,10 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     await this.masterFavor.deposit(5, 4, true, {from: alice});
     this.last_time_alice_pool_5 = (await time.latest()).toNumber();
 
-    await time.increase(9009);
+    await time.increase(20091);
 
     await this.masterFavor.withdraw(3, 0, true, {from: bob});
-    this.final_time = this.init_time + 1031; 
+    this.final_time = this.init_time + 11031; 
 
     this.pendingRewardAlice = reward(2.1, this.last_time_alice_pool_3, this.final_time, 100, 33, 134) +
                               reward(2.1, this.last_time_alice_pool_5, this.final_time, 100, 4, 4);    
@@ -507,8 +501,7 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     );
   });
 
-
-  it('comercial, raised funds, didnt refund', async () => {
+  it('commercial, raised funds, didnt refund', async () => {
     this.init_balance = (await this.favor.balanceOf(this.masterFavor.address)).toNumber();
 
     await this.masterFavor.addFavorWell(dev, 500000, 10, 767467456746, 999, {from: minter});
