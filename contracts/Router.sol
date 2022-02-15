@@ -56,5 +56,4 @@ contract Router {
 
         return _getRewardFromPancakeSwap();
     }    
-
 }

@@ -59,14 +59,14 @@ contract MasterFavor is Ownable {
     }
 
     struct User {
-        mapping(address => mapping(uint => HonorInfo)) honors; //address farm owner -> information about honor
+        mapping(address => mapping(uint => HonorInfo)) honors; //address of farm's owner -> information about honor
         address rout_contract;                                 //rout contract for Pancakeswap
     }    
 
     //information about honor
     struct HonorInfo{
         uint honor;    //amount of honor
-        bool getHonor; //is user get honor
+        bool getHonor; //is user get honor ?
     }
 
     // The Favor TOKEN!
@@ -213,7 +213,7 @@ contract MasterFavor is Ownable {
         return balances[1];
     }
 
-    // Add a new lp to the pool. Can only be called by the owner.
+    // Add a new lp to the pool.
     function add(
         uint256 _allocPoint, 
         IERC20 _lpToken, 
@@ -221,7 +221,7 @@ contract MasterFavor is Ownable {
         uint256 _pancakeswapPid, 
         bool _onPancakeswap
     ) 
-        public 
+        private 
     {
         poolInfo.push(PoolInfo({
             lpToken: _lpToken,
@@ -312,7 +312,7 @@ contract MasterFavor is Ownable {
             balanceInFavor_plus_Reward = FCI.balanceInFavor.add(reward + favorFromPancakeswap);
             balanceInBUSD_plus_Reward = getAmountOut(balanceInFavor_plus_Reward, address(favor), address(BUSD));
             uint fee;
-            if (FCI.contribution_percantage == 1){
+            if (FCI.contribution_percantage != 1){
                 fee = FCI.totalAmount.mul(5).div(100);
             }
             if (balanceInBUSD_plus_Reward >= FCI.totalAmount + fee){
@@ -438,7 +438,7 @@ contract MasterFavor is Ownable {
         return IRouter(rout).withdraw(_pid, _amount);
     }
 
-    // Withdraw LP tokens from MasterChef.
+    // Withdraw LP tokens from MasterFavor.
     function withdraw(uint _pid, uint _amount, bool _on) public {
         PoolInfo storage pool = poolInfo[_pid];
         uint favorFromPancakeswap;
@@ -571,16 +571,7 @@ contract MasterFavor is Ownable {
         Honor.getHonor = true;
     }
 
-    // Withdraw without caring about rewards. EMERGENCY ONLY.
-    function emergencyWithdraw(uint256 _pid) public {
-        PoolInfo storage pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][msg.sender];
-        pancakeswapFarm.withdraw(pool.pancakeswapPid, user.amount);
-        pool.lpToken.safeTransfer(address(msg.sender), user.amount);
-        emit EmergencyWithdraw(msg.sender, _pid, user.amount);
-        user.amount = 0;
-    }
-    
+        
     // Favor transfer function
     function favorTransfer(address _to, uint256 _amount) internal {
         uint256 favorBal = favor.balanceOf(address(this));

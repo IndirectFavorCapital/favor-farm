@@ -147,7 +147,186 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
    await this.lp3.approve(this.chef.address, '1000000000000', { from: bob });
    await this.lp3.approve(this.chef.address, '1000000000000', { from: alice });
    await this.lp3.approve(this.chef.address, '1000000000000', { from: carol });
-   await this.favor.transfer(this.masterFavor.address, 1000000000, {from: minter});
+   await this.favor.transfer(this.masterFavor.address, 100000000, {from: minter});
+  });
+
+  it('add farm, contribution and initial fee', async () => {
+    await this.masterFavor.addFavorWell(dev, 10000, 1, 999999999, 99999999, {from: minter});
+    await this.masterFavor.addFavorWell(alice, 10000, 10, 999999999, 99999999, {from: minter});
+    await this.masterFavor.addFavorWell(bob, 10000, 30, 999999999, 99999999, {from: minter});
+    await this.masterFavor.addFavorWell(carol, 10000, 50, 999999999, 99999999, {from: minter});
+
+    assert.equal((await this.BUSD.balanceOf(this.masterFavor.address)).toNumber(), 0);
+    assert.equal((await this.favor.balanceOf(this.masterFavor.address)).toNumber(), 100000000);
+
+    await this.masterFavor.makeContribution(alice, {from: minter});
+    assert.equal((await this.BUSD.balanceOf(this.masterFavor.address)).toNumber(), 500);
+    assert.equal((await this.favor.balanceOf(this.masterFavor.address)).toNumber(), 100000997);
+
+    await this.masterFavor.makeContribution(bob, {from: minter});
+    assert.equal((await this.BUSD.balanceOf(this.masterFavor.address)).toNumber(), 1000);
+    assert.equal((await this.favor.balanceOf(this.masterFavor.address)).toNumber(), 100003990);
+
+    await this.masterFavor.makeContribution(carol, {from: minter});
+    assert.equal((await this.BUSD.balanceOf(this.masterFavor.address)).toNumber(), 1500);
+    assert.equal((await this.favor.balanceOf(this.masterFavor.address)).toNumber(), 100008979);
+
+  });
+
+
+  it('deposit/withdraw', async () => {
+    await this.masterFavor.addFavorWell(dev, 10000, 1, 999999999, 99999999, {from: minter});
+    await this.masterFavor.addFavorWell(alice, 10000, 10, 999999999, 99999999, {from: minter});
+    await this.masterFavor.addFavorWell(bob, 10000, 30, 999999999, 99999999, {from: minter});
+    await this.masterFavor.addFavorWell(carol, 10000, 50, 999999999, 99999999, {from: minter});
+
+    await this.masterFavor.makeContribution(alice, {from: minter});
+    await this.masterFavor.makeContribution(bob, {from: minter});
+    await this.masterFavor.makeContribution(carol, {from: minter});
+
+    assert.equal((await this.lp1.balanceOf(this.masterFavor.address)).toNumber(), 0);
+    await this.masterFavor.deposit(3, 10, true, {from: alice});
+    assert.equal((await this.lp1.balanceOf(this.masterFavor.address)).toNumber(), 10);
+    this.time_1_alice = (await time.latest()).toNumber();
+    this.favor_balance_1_alice = (await this.favor.balanceOf(alice)).toNumber();
+    await time.increase(7);
+    await this.masterFavor.withdraw(3, 1, true, {from: alice});
+    assert.equal((await this.lp1.balanceOf(this.masterFavor.address)).toNumber(), 9);
+    this.time_2_alice = (await time.latest()).toNumber();
+    this.favor_balance_2_alice = (await this.favor.balanceOf(alice)).toNumber();
+    assert.equal(
+            this.favor_balance_2_alice - this.favor_balance_1_alice,
+            reward(2.1, this.time_1_alice, this.time_2_alice, 100, 10, 10)
+           );
+           
+    await this.masterFavor.deposit(9, 19, true, {from: bob});
+    assert.equal((await this.lp1.balanceOf(this.masterFavor.address)).toNumber(), 28);
+    this.time_1_bob = (await time.latest()).toNumber();
+    this.favor_balance_1_bob = (await this.favor.balanceOf(bob)).toNumber();
+    await time.increase(5);
+    await this.masterFavor.deposit(9, 1, true, {from: bob});
+    assert.equal((await this.lp1.balanceOf(this.masterFavor.address)).toNumber(), 29);
+    this.time_2_bob = (await time.latest()).toNumber();
+    this.favor_balance_2_bob = (await this.favor.balanceOf(bob)).toNumber();
+    assert.equal(
+            this.favor_balance_2_bob - this.favor_balance_1_bob,
+            reward(2.1, this.time_1_bob, this.time_2_bob, 100, 19, 19)
+           );
+
+    await this.masterFavor.deposit(15, 7, true, {from: bob});
+    assert.equal((await this.lp1.balanceOf(this.masterFavor.address)).toNumber(), 36);
+    this.time_1_bob = (await time.latest()).toNumber();
+    this.favor_balance_1_bob = (await this.favor.balanceOf(bob)).toNumber();
+    await time.increase(13);
+    await this.masterFavor.withdraw(15, 7, true, {from: bob});
+    assert.equal((await this.lp1.balanceOf(this.masterFavor.address)).toNumber(), 29);
+    this.time_2_bob = (await time.latest()).toNumber();
+    this.favor_balance_2_bob = (await this.favor.balanceOf(bob)).toNumber();
+    assert.equal(
+            this.favor_balance_2_bob - this.favor_balance_1_bob,
+            reward(2.2, this.time_1_bob, this.time_2_bob, 100, 15, 15)
+           );
+
+    await this.masterFavor.deposit(18, 4, true, {from: bob});
+    this.time_1_bob = (await time.latest()).toNumber();
+    this.favor_balance_1_bob = (await this.favor.balanceOf(bob)).toNumber();
+    await time.increase(18);
+    await this.masterFavor.withdraw(18, 2, true, {from: bob});
+    this.time_2_bob = (await time.latest()).toNumber();
+    this.favor_balance_2_bob = (await this.favor.balanceOf(bob)).toNumber();
+    assert.equal(
+            this.favor_balance_2_bob - this.favor_balance_1_bob - 2,
+            reward(2.3, this.time_1_bob, this.time_2_bob, 100, 4, 4)
+           );
+  });
+
+  it('interaction with pancakeswap', async () => {
+    await this.masterFavor.addFavorWell(dev, 99999, 1, 999999999, 99999999, {from: minter});
+
+    this.rout_contract_alice = (await this.masterFavor.users(alice));
+    assert.equal(this.rout_contract_alice.toString(), '0x0000000000000000000000000000000000000000');
+ 
+    await this.masterFavor.deposit(4, 10, true, {from: alice});
+    this.time_1_alice = (await time.latest()).toNumber();
+    this.favor_balance_1_alice = (await this.favor.balanceOf(alice)).toNumber();
+    this.favor_balance_1_masterFavor = (await this.favor.balanceOf(this.masterFavor.address)).toNumber();
+
+    this.rout_contract_alice = (await this.masterFavor.users(alice));
+    this.rout_contract_bob = (await this.masterFavor.users(bob));
+    assert.notEqual(this.rout_contract_alice.toString(), '0x0000000000000000000000000000000000000000');
+    assert.equal(this.rout_contract_bob.toString(), '0x0000000000000000000000000000000000000000');
+
+    this.lp_token_num = ((await this.masterFavor.LP_tokens_for_farm(4)).pancakeSwapPoolId).toNumber();
+    assert.equal(this.lp_token_num, 1);
+    assert.equal((await this.cake.balanceOf(this.rout_contract_alice)).toNumber(), 0);
+    assert.equal((await this.favor.balanceOf(this.rout_contract_alice)).toNumber(), 0);
+    assert.equal((await this.lp2.balanceOf(this.rout_contract_alice)).toNumber(), 0);
+
+    await time.increase(70);
+
+    await this.masterFavor.deposit(4, 10, false, {from: bob});
+    this.time_1_bob = (await time.latest()).toNumber();
+    this.favor_balance_1_bob = (await this.favor.balanceOf(bob)).toNumber();
+
+    await time.increase(11);
+    await time.advanceBlock(10);
+
+    await this.masterFavor.withdraw(4, 4, true, {from: alice});
+    assert.equal((await this.lp2.balanceOf(this.masterFavor.address)).toNumber(), 10);
+    assert.equal((await this.lp2.balanceOf(this.chef.address)).toNumber(), 6);
+    this.time_2_alice = (await time.latest()).toNumber();
+    this.favor_balance_2_alice = (await this.favor.balanceOf(alice)).toNumber();
+    this.diff = Math.abs(
+                    this.favor_balance_2_alice - 
+                    this.favor_balance_1_alice - 
+                    reward(2.1, this.time_1_alice, this.time_2_alice, 100, 10, 10)
+                );
+
+
+    if (this.diff < 100){
+      throw new Error(
+                  `Did not receive awards from pancake swap`
+                );
+    }
+
+    await this.masterFavor.deposit(4, 10, true, {from: bob});
+    this.time_2_bob = (await time.latest()).toNumber();
+    this.favor_balance_2_bob = (await this.favor.balanceOf(bob)).toNumber();
+    assert.equal(this.favor_balance_2_bob - this.favor_balance_1_bob, reward(2.1, this.time_1_bob, this.time_2_bob, 100, 10, 16));
+    this.time_1_bob = this.time_2_bob;
+    this.favor_balance_1_bob = this.favor_balance_2_bob;
+    this.favor_balance_1_masterFavor = (await this.favor.balanceOf(this.masterFavor.address)).toNumber();
+
+    this.rout_contract_bob = (await this.masterFavor.users(bob));
+    assert.notEqual(this.rout_contract_bob.toString(), '0x0000000000000000000000000000000000000000');
+
+    await time.increase(90);
+
+    await this.masterFavor.deposit(4, 10, true, {from: bob});
+    this.time_2_bob = (await time.latest()).toNumber();
+    this.favor_balance_2_bob = (await this.favor.balanceOf(bob)).toNumber();
+    this.diff = Math.abs(
+                    this.favor_balance_2_bob - 
+                    this.favor_balance_1_bob - 
+                    reward(2.1, this.time_1_bob, this.time_2_bob, 100, 20, 26)
+                );
+
+    if (this.diff <= 200){
+      throw new Error(
+                  `Did not receive awards from pancake swap`
+                );
+    }
+
+    assert.equal((await this.lp2.balanceOf(alice)).toNumber(), 194);
+    assert.equal((await this.lp2.balanceOf(bob)).toNumber(), 170);
+    assert.equal((await this.lp2.balanceOf(this.masterFavor.address)).toNumber(), 10);
+    assert.equal((await this.lp2.balanceOf(this.chef.address)).toNumber(), 26);
+    assert.equal((await this.cake.balanceOf(this.rout_contract_alice)).toNumber(), 0);
+    assert.equal((await this.favor.balanceOf(this.rout_contract_alice)).toNumber(), 0);
+    assert.equal((await this.lp2.balanceOf(this.rout_contract_alice)).toNumber(), 0);
+    assert.equal((await this.cake.balanceOf(this.rout_contract_bob)).toNumber(), 0);
+    assert.equal((await this.favor.balanceOf(this.rout_contract_bob)).toNumber(), 0);
+    assert.equal((await this.lp2.balanceOf(this.rout_contract_bob)).toNumber(), 0);
   });
 
   it('non profit, raised funds', async () => {
