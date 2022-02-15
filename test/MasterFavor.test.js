@@ -150,6 +150,7 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
    await this.favor.transfer(this.masterFavor.address, 100000000, {from: minter});
   });
 
+
   it('add farm, contribution and initial fee', async () => {
     await this.masterFavor.addFavorWell(dev, 10000, 1, 999999999, 99999999, {from: minter});
     await this.masterFavor.addFavorWell(alice, 10000, 10, 999999999, 99999999, {from: minter});
@@ -172,7 +173,6 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     assert.equal((await this.favor.balanceOf(this.masterFavor.address)).toNumber(), 100008979);
 
   });
-
 
   it('deposit/withdraw', async () => {
     await this.masterFavor.addFavorWell(dev, 10000, 1, 999999999, 99999999, {from: minter});
@@ -285,7 +285,7 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
 
     if (this.diff < 100){
       throw new Error(
-                  `Did not receive awards from pancake swap`
+                  `Did not receive rewards from pancake swap`
                 );
     }
 
@@ -507,7 +507,7 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     assert.equal(this.favor_balance_final_bob - (await this.favor.balanceOf(bob)).toNumber(), 0);
     
   });
-
+ 
   it('commercial, didnt raise funds. Part 1', async () => {
 
     this.init_balance = (await this.favor.balanceOf(this.masterFavor.address)).toNumber();
@@ -567,32 +567,42 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     this.paidReward += this.pendingrewardBob;
 
     this.favor_balance_1_alice = (await this.favor.balanceOf(alice)).toNumber();
-    
+
     await this.masterFavor.getHonor(dev, {from: alice});
     this.favor_balance_2_alice = (await this.favor.balanceOf(alice)).toNumber();
+
+    this.deposit_in_last_period = ((await this.masterFavor.favorCompanyInformation(dev, 0)).deposit_in_last_period).toNumber();
     
     this.HonorAmount = pendingHonor(
                           this.favor_balance_1_alice, 
                           this.balance_after_contribution - this.init_balance + this.paidReward, 
-                          this.paidReward
+                          this.deposit_in_last_period
                        );
-    
-    assert.equal(this.favor_balance_2_alice - this.favor_balance_1_alice, this.HonorAmount);
-    
+
+    if (Math.abs(this.deposit_in_last_period - this.paidReward) > 2){
+      throw new Error(
+                  `Incorrect deposit_in_last_period`
+                  );
+    }
+    if (Math.abs(this.HonorAmount - this.favor_balance_2_alice + this.favor_balance_1_alice) > 2){
+                throw new Error(
+                  `Incorrect honor amount`
+                );
+    }
     this.favor_balance_1_bob = (await this.favor.balanceOf(bob)).toNumber();
     await this.masterFavor.getHonor(dev, {from: bob});
     this.favor_balance_2_bob = (await this.favor.balanceOf(bob)).toNumber();
     this.HonorAmount = pendingHonor(
                           this.favor_balance_1_bob + this.pendingrewardBob, 
                           this.balance_after_contribution - this.init_balance + this.paidReward,
-                          this.paidReward
+                          this.deposit_in_last_period
                        );
 
-    assert.equal(
-      this.favor_balance_2_bob - this.favor_balance_1_bob - this.pendingrewardBob, 
-      this.HonorAmount
-    );
-    
+    if (Math.abs(this.HonorAmount - this.favor_balance_2_bob + this.favor_balance_1_bob + this.pendingrewardBob) > 2){
+                throw new Error(
+                  `Incorrect honor amount`
+                );
+    }
   });
 
   it('commercial, didnt raise funds. Part 2', async () => {
@@ -603,7 +613,7 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
 
     this.balance_after_contribution = (await this.favor.balanceOf(this.masterFavor.address)).toNumber();
     this.paidReward = 0;
-    this.deposit_in_last_period = 0;
+    this.pending_deposit_in_last_period = 0;
     this.alice_honor = 0;
     
     await this.masterFavor.deposit(3, 10, true, {from: alice});
@@ -625,7 +635,7 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     await this.masterFavor.withdraw(5, 11, true, {from: alice});
     await this.masterFavor.withdraw(3, 10, true, {from: alice});
 
-    this.deposit_in_last_period -= (await this.favor.balanceOf(alice)).toNumber();
+    this.pending_deposit_in_last_period -= (await this.favor.balanceOf(alice)).toNumber();
     this.alice_honor -= (await this.favor.balanceOf(alice)).toNumber();
 
     await time.increase(10);
@@ -650,7 +660,7 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
                       (await this.favor.balanceOf(bob)).toNumber() +
                       this.pendingRewardAlice;
 
-    this.deposit_in_last_period += this.paidReward;
+    this.pending_deposit_in_last_period += this.paidReward;
     this.alice_honor += (await this.favor.balanceOf(alice)).toNumber() +
                         this.pendingRewardAlice;
 
@@ -661,12 +671,26 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     this.balance_alice_after_honor = (await this.favor.balanceOf(alice)).toNumber();
     this.balance_bob_after_honor = (await this.favor.balanceOf(bob)).toNumber();
 
+    this.deposit_in_last_period = ((await this.masterFavor.favorCompanyInformation(dev, 0)).deposit_in_last_period).toNumber();
+
+    if (Math.abs(this.deposit_in_last_period - this.pending_deposit_in_last_period) > 2){
+      throw new Error(
+                  `Incorrect deposit_in_last_period`
+                  );
+    }
+
     this.HonorAmount = pendingHonor(
                           this.balance_bob_befor_honor, 
                           this.balance_after_contribution - this.init_balance + this.paidReward, 
                           this.deposit_in_last_period
                         );
-    assert.equal(this.balance_bob_after_honor - this.balance_bob_befor_honor, this.HonorAmount);
+
+
+    if (Math.abs(this.HonorAmount - this.balance_bob_after_honor + this.balance_bob_befor_honor) > 2){
+                throw new Error(
+                  `Incorrect honor amount`
+                );
+    }
 
     this.HonorAmount = pendingHonor(
                           this.alice_honor, 
@@ -674,10 +698,11 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
                           this.deposit_in_last_period
                        );
 
-    assert.equal(
-      this.balance_alice_after_honor - this.balance_alice_befor_honor - this.pendingRewardAlice, 
-      this.HonorAmount
-    );
+    if (Math.abs(this.HonorAmount - this.balance_alice_after_honor + this.balance_alice_befor_honor + this.pendingRewardAlice) > 2){
+                throw new Error(
+                  `Incorrect honor amount`
+                );
+    }
   });
 
   it('commercial, raised funds, didnt refund', async () => {
@@ -817,7 +842,6 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     );
                  
   });
-
 });
 
 
