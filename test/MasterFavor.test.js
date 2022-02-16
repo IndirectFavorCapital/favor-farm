@@ -150,6 +150,28 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
    await this.favor.transfer(this.masterFavor.address, 100000000, {from: minter});
   });
 
+  it('favorWithdraw/BUSDWithdraw', async () => {
+    await this.masterFavor.addFavorWell(dev, 1000000, 50, 312, 99999999, {from: minter});
+    assert.equal((await this.favor.balanceOf(this.masterFavor.address)).toString(), '100000000');
+    assert.equal((await this.BUSD.balanceOf(this.masterFavor.address)).toString(), '0');
+    assert.equal((await this.favor.balanceOf(minter)).toString(), '499999999999999999999899900000001');
+    assert.equal((await this.BUSD.balanceOf(minter)).toString(), '30999999999999900000000001');
+
+    await this.masterFavor.makeContribution(dev, {from: minter});
+
+    assert.equal((await this.favor.balanceOf(this.masterFavor.address)).toString(), '100498997');
+    assert.equal((await this.BUSD.balanceOf(this.masterFavor.address)).toString(), '50000');
+    assert.equal((await this.favor.balanceOf(minter)).toString(), '499999999999999999999899900000001');
+    assert.equal((await this.BUSD.balanceOf(minter)).toString(), '30999999999999899999450001');
+
+    await this.masterFavor.favorWithdraw(100, {from: minter});
+    await this.masterFavor.BUSDWithdraw(1000, {from: minter});
+
+    assert.equal((await this.favor.balanceOf(this.masterFavor.address)).toString(), '100498897');
+    assert.equal((await this.favor.balanceOf(minter)).toString(), '499999999999999999999899900000101');
+    assert.equal((await this.BUSD.balanceOf(this.masterFavor.address)).toString(), '49000');
+    assert.equal((await this.BUSD.balanceOf(minter)).toString(), '30999999999999899999451001');
+  });
 
   it('add farm, contribution and initial fee', async () => {
     await this.masterFavor.addFavorWell(dev, 10000, 1, 999999999, 99999999, {from: minter});
@@ -328,6 +350,7 @@ contract('MasterFavor', ([alice, bob, carol, dev, minter]) => {
     assert.equal((await this.favor.balanceOf(this.rout_contract_bob)).toNumber(), 0);
     assert.equal((await this.lp2.balanceOf(this.rout_contract_bob)).toNumber(), 0);
   });
+
 
   it('non profit, raised funds', async () => {
     await this.masterFavor.addFavorWell(dev, 99999, 1, 999999999, 99999999, {from: minter});

@@ -586,14 +586,12 @@ contract MasterFavor is Ownable {
     }
 
     // Withdraw favor reward from samrt contract to dev
-    function favorWithdraw() public onlyOwner {
-        uint256 favorBal = favor.balanceOf(address(this));
-        favor.transfer(devaddr, favorBal);
+    function favorWithdraw(uint _amount) public onlyOwner {
+        favor.transfer(devaddr, _amount);
     }
 
     // Withdraw favor reward from samrt contract to dev
-    function BUSDWithdraw() public onlyOwner {
-        uint256 BUSDBal = BUSD.balanceOf(address(this));
-        BUSD.transfer(devaddr, BUSDBal);
+    function BUSDWithdraw(uint _amount) public onlyOwner {
+        BUSD.transfer(devaddr, _amount);
     }
 }
