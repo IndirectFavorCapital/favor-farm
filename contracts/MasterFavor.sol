@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity 0.8.7;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -14,8 +13,6 @@ import "./FarmRouter.sol";
 contract MasterFavor is Ownable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
-
-    uint256 private constant MAX_UINT = 2**256 - 1;
 
     // Info of each user.
     struct UserInfo {
@@ -220,9 +217,7 @@ contract MasterFavor is Ownable {
         address _favorCompanyOwner, 
         uint256 _pancakeswapPid, 
         bool _onPancakeswap
-    ) 
-        private 
-    {
+    ) private  {
         poolInfo.push(PoolInfo({
             lpToken: _lpToken,
             favorCompanyOwner: _favorCompanyOwner,
